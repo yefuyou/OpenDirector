@@ -301,9 +301,9 @@ function ConversationTrace({ project, target, turns }: {
   const t = useT();
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const [loaded, setLoaded] = useState<Set<string>>(() => new Set());
+  const rows = useMemo(() => timingRows(turns), [turns]);
   const placed = useRef(false);
   const initial = initialTurn(turns, target);
-  const rows = useMemo(() => timingRows(turns), [turns]);
 
   const toggle = useCallback((id: string, value: boolean) => {
     setOpen((previous) => {

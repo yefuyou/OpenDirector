@@ -310,8 +310,8 @@ jobs:
           curl --fail --silent -H 'X-OpenDirector-Request: 1' "$CREATION_API_URL/api/creation-test-health"
           curl --silent --fail "$CREATION_WEB_URL/" >/dev/null
           node tests/browser/bilingual_defaults.mjs
-          node tests/browser/assistant_auxiliary_panels.mjs
           node tests/browser/trace_timing_overview.mjs
+          node tests/browser/assistant_auxiliary_panels.mjs
       - name: Print isolated service logs on failure
         if: failure()
         run: |
