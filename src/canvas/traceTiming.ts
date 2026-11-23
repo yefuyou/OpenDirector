@@ -14,7 +14,6 @@ export type TimingRow = {
   durationMs: number | null;
   /** durationMs / longest recorded duration, 0..1. Null unless kind is "timed". */
   ratio: number | null;
-  startedAt: string | null;
 };
 
 const recorded = (ms: number | null | undefined): ms is number =>
@@ -35,7 +34,6 @@ export function timingRows(turns: ConversationTurn[]): TimingRow[] {
       kind: turn.status === "streaming" ? "running" : timed ? "timed" : "unknown",
       durationMs,
       ratio: durationMs === null ? null : longest > 0 ? durationMs / longest : 0,
-      startedAt: turn.startedAt ?? null,
     };
   });
 }
@@ -43,13 +41,3 @@ export function timingRows(turns: ConversationTurn[]): TimingRow[] {
 /** Bar width in percent of the track. */
 export const barPercent = (ratio: number): number =>
   Math.min(100, Math.max(MIN_BAR_PERCENT, ratio * 100));
-
-/**
- * Display-only elapsed time of a running turn. The browser clock is not authoritative, so this is
- * approximate; an unparseable start gives null and a start in the future (clock skew) gives 0.
- */
-export function runningElapsedMs(startedAt: string | null, now: number): number | null {
-  if (!startedAt) return null;
-  const start = Date.parse(startedAt);
-  return Number.isNaN(start) ? null : Math.max(0, now - start);
-}

@@ -1,6 +1,6 @@
 import { useT } from "../i18n/I18nProvider";
 import type { MessageKey } from "../i18n/types";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { traceCategory, isThinkingTokenEstimate, readableTraceValue } from "./traceCategory.ts";
 
@@ -305,7 +305,7 @@ function ConversationTrace({ project, target, turns }: {
   const initial = initialTurn(turns, target);
   const rows = useMemo(() => timingRows(turns), [turns]);
 
-  function toggle(id: string, value: boolean) {
+  const toggle = useCallback((id: string, value: boolean) => {
     setOpen((previous) => {
       if (previous.has(id) === value) return previous;
       const next = new Set(previous);
@@ -313,20 +313,32 @@ function ConversationTrace({ project, target, turns }: {
       return next;
     });
     if (value) setLoaded((previous) => previous.has(id) ? previous : new Set(previous).add(id));
-  }
-  function reveal(id: string) {
+  }, []);
+  // Opens the turn and scrolls its summary just below the sticky header and turn navigation, which
+  // pin at the same top edge. With `focus`, the summary also takes keyboard focus. The scroll is
+  // done here (not by focus or scrollIntoView) so the bars never cover the target.
+  const reveal = useCallback((id: string, focus = false) => {
     toggle(id, true);
-    window.requestAnimationFrame(() => document.getElementById(`turn-${id}`)?.scrollIntoView({ block: "start" }));
-  }
+    window.requestAnimationFrame(() => {
+      const summary = document.getElementById(`turn-${id}`)?.querySelector("summary");
+      if (!summary) return;
+      const covered = Math.max(0, ...[".cw-trace-header", ".cw-trace-turnnav"].map((selector) =>
+        document.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0));
+      window.scrollTo({ top: Math.max(0, summary.getBoundingClientRect().top + window.scrollY - covered) });
+      if (focus) (summary as HTMLElement).focus({ preventScroll: true });
+    });
+  }, [toggle]);
+  const activate = useCallback((id: string) => reveal(id, true), [reveal]);
+  // A deep link opens and positions its turn but does not take focus on page load.
   useEffect(() => {
     if (placed.current || !initial) return;
     placed.current = true;
     reveal(initial);
-  }, [initial]);
+  }, [initial, reveal]);
 
   return (
     <>
-      <TraceTimingOverview rows={rows} open={open} reveal={reveal} />
+      <TraceTimingOverview rows={rows} reveal={activate} />
       <nav className="cw-trace-turnnav" aria-label={t("trace.turns.nav")}>
         {turns.map((item) => (
           <button key={item.id} type="button" aria-pressed={open.has(item.id)}
@@ -384,7 +396,11 @@ export default function AssistantTracePage({ params }: { params: URLSearchParams
         if (controller.signal.aborted) return;
         if (!response?.ok) return setConversation((previous) => previous === undefined ? null : previous);
         const body = await response.json() as { conversationId: string; turns: ConversationTurn[] };
-        setConversation((previous) => JSON.stringify(previous) === JSON.stringify(body) ? previous : { id: body.conversationId, turns: body.turns });
+        // Keep the state object when a poll returns the same turns, so a running conversation does not
+        // render its turns and the timing overview again on every poll.
+        setConversation((previous) => previous && previous.id === body.conversationId
+          && JSON.stringify(previous.turns) === JSON.stringify(body.turns)
+          ? previous : { id: body.conversationId, turns: body.turns });
         if (body.turns.some((item) => item.status === "streaming"))
           timer = window.setTimeout(load, 2000);
       } catch {

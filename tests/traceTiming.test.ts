@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { barPercent, MIN_BAR_PERCENT, runningElapsedMs, timingRows } from "../src/canvas/traceTiming.ts";
+import { barPercent, MIN_BAR_PERCENT, timingRows } from "../src/canvas/traceTiming.ts";
 import type { ConversationTurn } from "../src/canvas/traceTurns.ts";
 
 const turn = (id: string, status: ConversationTurn["status"], durationMs?: number | null, extra = {}): ConversationTurn =>
@@ -25,7 +25,7 @@ test("running and unknown turns are excluded from the scale and get no ratio", (
   assert.deepEqual(rows.map((row) => row.kind), ["timed", "running", "running", "unknown", "unknown", "unknown", "unknown"]);
   assert.equal(rows[0].ratio, 1);
   assert.ok(rows.slice(1).every((row) => row.ratio === null && row.durationMs === null));
-  assert.equal(rows[1].startedAt, "2026-01-01T00:00:00.000Z");
+  assert.ok(rows.every((row) => !("startedAt" in row)), "rows carry no browser-clock input");
 });
 
 test("durationMs is the only source: startedAt and finishedAt are never subtracted", () => {
@@ -49,13 +49,4 @@ test("row order and numbers follow the turns, and large conversations stay linea
   const rows = timingRows(turns);
   assert.equal(rows.length, 5000);
   assert.deepEqual(rows.slice(0, 3).map((row) => row.id), ["t1", "t2", "t3"]);
-});
-
-test("running elapsed time is approximate, never negative, and null without a valid start", () => {
-  const start = "2026-01-01T00:00:00.000Z";
-  const at = Date.parse(start);
-  assert.equal(runningElapsedMs(start, at + 12400), 12400);
-  assert.equal(runningElapsedMs(start, at - 5000), 0);
-  assert.equal(runningElapsedMs(null, at), null);
-  assert.equal(runningElapsedMs("not a date", at), null);
 });
