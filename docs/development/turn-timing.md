@@ -2,7 +2,7 @@
 
 [中文](turn-timing.zh-CN.md)
 
-Issue #468. This page records what "turn duration" means for the Assistant (Slice A, implemented) and the design of the Trace Timing Overview (Slice B, design only, not implemented). The code in `apps/api/src/opendirector_api/agent.py` (`Conversations.update`, `Conversations.trace`) and `src/canvas/turnTiming.ts` is the source of truth for Slice A.
+Issue #468. This page records what "turn duration" means for the Assistant (Slice A, implemented) and the design of the Trace Timing Overview (Slice B, implemented). The code in `apps/api/src/opendirector_api/agent.py` (`Conversations.update`, `Conversations.trace`) and `src/canvas/turnTiming.ts` is the source of truth for Slice A.
 
 ## Slice A: recorded timing
 
@@ -46,7 +46,9 @@ After a restart the in-memory start is gone, so a turn that was running keeps `s
 
 ## Slice B design: Trace Timing Overview
 
-Status: design only. Slice B adds no backend field, endpoint or event timestamp.
+Status: implemented in `src/canvas/traceTiming.ts` (model), `src/canvas/TraceTimingOverview.tsx` (component), and wired in `ConversationTrace` of `src/canvas/AssistantTracePage.tsx`. Slice B adds no backend field, endpoint or event timestamp.
+
+Differences from the first design: a running turn shows "about N s so far" (a 1 s display-only tick, only while a turn runs). The list scrolls inside a box of at most 40vh, so a long conversation does not push the turns down. Rows set `aria-expanded` and `aria-controls` for their turn instead of using arrow-key roving focus (plain Tab, Enter and Space). Browser check: `tests/browser/trace_timing_overview.mjs`.
 
 ### Choice: Per-turn Duration Comparison
 

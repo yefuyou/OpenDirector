@@ -47,5 +47,10 @@ export const trace = {
   "trace.waiting": "Waiting for trace events…",
   "trace.notFound": "No trace of this type for this turn.",
   "trace.loadFailed": "Could not load trace.",
-  "trace.turn.duration.unavailable": "Unavailable"
+  "trace.turn.duration.unavailable": "Unavailable",
+  "trace.overview.title": "Turn durations",
+  "trace.overview.hint": "Bar length compares how long each turn took. It is not a timeline.",
+  "trace.overview.row": "Turn {number}, {runtime}, {status}, {duration}",
+  "trace.overview.elapsed": "about {elapsed} so far",
+  "trace.overview.inProgress": "in progress"
 } as const;

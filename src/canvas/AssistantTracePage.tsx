@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { traceCategory, isThinkingTokenEstimate, readableTraceValue } from "./traceCategory.ts";
 
 import { turnTiming, TURN_STATUS_KEYS } from "./turnTiming.ts";
+import TraceTimingOverview from "./TraceTimingOverview.tsx";
+import { timingRows } from "./traceTiming.ts";
 import { initialTurn, normalizeTrace, runtimeName, traceRuntime, traceSources, type ConversationTurn } from "./traceTurns.ts";
 
 import { readTurnJobs, turnJobView, type TurnJob } from "./traceJobs.ts";
@@ -301,6 +303,7 @@ function ConversationTrace({ project, target, turns }: {
   const [loaded, setLoaded] = useState<Set<string>>(() => new Set());
   const placed = useRef(false);
   const initial = initialTurn(turns, target);
+  const rows = useMemo(() => timingRows(turns), [turns]);
 
   function toggle(id: string, value: boolean) {
     setOpen((previous) => {
@@ -323,6 +326,7 @@ function ConversationTrace({ project, target, turns }: {
 
   return (
     <>
+      <TraceTimingOverview rows={rows} open={open} reveal={reveal} />
       <nav className="cw-trace-turnnav" aria-label={t("trace.turns.nav")}>
         {turns.map((item) => (
           <button key={item.id} type="button" aria-pressed={open.has(item.id)}

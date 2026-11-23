@@ -2,7 +2,7 @@
 
 [English](turn-timing.md)
 
-Issue #468。本文记录 Assistant“轮次耗时”的含义（Slice A，已实现）和 Trace 计时概览的设计（Slice B，仅设计，未实现）。Slice A 以 `apps/api/src/opendirector_api/agent.py`（`Conversations.update`、`Conversations.trace`）和 `src/canvas/turnTiming.ts` 的代码为准。
+Issue #468。本文记录 Assistant“轮次耗时”的含义（Slice A，已实现）和 Trace 计时概览的设计（Slice B，已实现）。Slice A 以 `apps/api/src/opendirector_api/agent.py`（`Conversations.update`、`Conversations.trace`）和 `src/canvas/turnTiming.ts` 的代码为准。
 
 ## Slice A：已记录的计时
 
@@ -46,7 +46,9 @@ Issue #468。本文记录 Assistant“轮次耗时”的含义（Slice A，已�
 
 ## Slice B 设计：Trace 计时概览
 
-状态：仅设计。Slice B 不新增后端字段、接口或事件时间戳。
+状态：已实现，模型在 `src/canvas/traceTiming.ts`，组件在 `src/canvas/TraceTimingOverview.tsx`，由 `src/canvas/AssistantTracePage.tsx` 的 `ConversationTrace` 接入。Slice B 不新增后端字段、接口或事件时间戳。
+
+与最初设计的差异：进行中的轮次显示“已运行约 N 秒”（仅在有轮次运行时每秒刷新，只用于显示）。列表在最高 40vh 的框内滚动，长对话不会把轮次挤到下面。每一行用 `aria-expanded` 和 `aria-controls` 指向对应轮次，不做方向键漫游焦点（使用 Tab、Enter、Space）。浏览器检查：`tests/browser/trace_timing_overview.mjs`。
 
 ### 选择：逐轮耗时对比
 

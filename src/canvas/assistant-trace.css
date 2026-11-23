@@ -100,3 +100,41 @@
   .cw-trace-turn > summary { grid-template-columns: auto minmax(0, 1fr); }
   .cw-trace-turn-meta { grid-column: 1 / -1; }
 }
+
+/* Trace Timing Overview (#468 Slice B): bar length compares durations, it is not a timeline. */
+.cw-trace-overview { padding: 10px 20px 12px; border-bottom: 1px solid #3c3c3c; }
+.cw-trace-overview h2 { margin: 0; font-size: 14px; }
+.cw-trace-overview-hint { margin: 2px 0 8px; padding: 0; color: #aaa; font-size: 12px; }
+.cw-trace-overview-list { display: grid; gap: 2px; max-height: min(40vh, 360px); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.cw-trace-overview-row {
+  display: grid; grid-template-columns: 64px 140px 90px minmax(0, 1fr) 150px; align-items: center; gap: 10px;
+  width: 100%; min-height: 28px; padding: 2px 6px; border: 1px solid transparent; border-radius: 4px;
+  background: transparent; color: #ddd; font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.cw-trace-overview-row:hover { background: #2c2c2c; }
+.cw-trace-overview-row[aria-expanded="true"] { border-color: #4d5d6d; background: #303c48; }
+.cw-trace-overview-row:focus-visible { outline: 2px solid #8eb7fa; outline-offset: -2px; }
+.cw-trace-overview-name, .cw-trace-overview-runtime, .cw-trace-overview-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-trace-overview-runtime { color: #aaa; }
+.cw-trace-overview-row .cw-trace-badge { justify-self: start; }
+.cw-trace-overview-value { text-align: right; font-variant-numeric: tabular-nums; }
+.cw-trace-overview-track { display: block; height: 10px; border-radius: 3px; background: #1c1c1c; overflow: hidden; }
+.cw-trace-overview-bar { display: block; height: 100%; border-radius: 3px; background: #6f8fb8; }
+.cw-trace-overview-bar.is-complete { background: #4f9a72; }
+.cw-trace-overview-bar.is-stopped { background: #c8934f; }
+.cw-trace-overview-bar.is-interrupted { background: #c76a6a; }
+.cw-trace-overview-bar.is-open-ended {
+  width: 100%; background: repeating-linear-gradient(135deg, #6f8fb8 0 6px, #2b3644 6px 12px);
+  background-size: 17px 100%; opacity: .75;
+}
+.cw-trace-overview-bar.is-streaming.is-open-ended { animation: cw-trace-overview-stripes 1s linear infinite; }
+@keyframes cw-trace-overview-stripes { to { background-position: 17px 0; } }
+@media (prefers-reduced-motion: reduce) { .cw-trace-overview-bar.is-open-ended { animation: none !important; } }
+@media (max-width: 600px) {
+  .cw-trace-overview { padding: 10px 12px; }
+  .cw-trace-overview-row { grid-template-columns: 4.5rem minmax(0, 1fr) 7rem; row-gap: 4px; padding: 6px; }
+  .cw-trace-overview-runtime { grid-column: 2; }
+  .cw-trace-overview-row .cw-trace-badge { grid-column: 3; justify-self: end; }
+  .cw-trace-overview-track { grid-column: 1 / 3; }
+  .cw-trace-overview-value { grid-column: 3; white-space: normal; }
+}
