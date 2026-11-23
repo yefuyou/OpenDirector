@@ -48,7 +48,39 @@ Issue #468。本文记录 Assistant“轮次耗时”的含义（Slice A，已�
 
 状态：已实现，模型在 `src/canvas/traceTiming.ts`，组件在 `src/canvas/TraceTimingOverview.tsx`，由 `src/canvas/AssistantTracePage.tsx` 的 `ConversationTrace` 接入。Slice B 不新增后端字段、接口或事件时间戳。
 
-与最初设计的差异：进行中的轮次显示“已运行约 N 秒”（仅在有轮次运行时每秒刷新，只用于显示）。列表在最高 40vh 的框内滚动，长对话不会把轮次挤到下面。每一行用 `aria-expanded` 和 `aria-controls` 指向对应轮次，不做方向键漫游焦点（使用 Tab、Enter、Space）。浏览器检查：`tests/browser/trace_timing_overview.mjs`。
+与最初设计的差异：进行中的轮次只显示“运行中”和斜纹条。没有计时器，也不用浏览器时钟计算已运行时间，因为浏览器时钟不是权威耗时，计时器还会让列表每秒重新渲染。列表在最高 40vh 的框内滚动，长对话不会把轮次挤到下面。每一行设置指向对应轮次的 `aria-controls`，不设置 `aria-expanded`，因为激活一行是展开轮次而不是切换。操作方式为 Tab、Enter、Space，不做方向键漫游焦点。浏览器检查：`tests/browser/trace_timing_overview.mjs`，由 `release-checks.yml` 的 assistant 通道运行。
+
+### 交互
+
+- 激活一行（点击、Enter 或 Space）会展开对应轮次，只加载该轮次，把它的 `<summary>` 滚动到固定的页头和轮次导航之下，并把键盘焦点移到该 summary。再次激活同一行时轮次保持展开，并再次聚焦和滚动。summary 仍是原生控件，在其上按 Enter 会切换该轮次。
+- 深链接（`?turn=`）会展开并定位目标轮次，位于固定栏之下，但页面加载时不抢占焦点，避免未经请求移动屏幕阅读器或键盘用户的位置。
+- 轮次导航按钮保持原有行为：展开并滚动，不移动焦点。
+- 轮次导航在受限高度（`min(96px, 20vh)`）内滚动。1,000 个按钮原本会换行成 1,133 px，遮住 900 px 的视口。
+- `ConversationTrace` 保持 `reveal` 和对话状态稳定。轮询返回相同轮次时沿用原状态对象，运行中的对话不会重复渲染轮次和概览。修复前状态按错误的结构比较，每 2 秒一次轮询都会渲染所有行但画面无变化。
+
+### 布局
+
+宽度大于 900 px 时每行一条：轮次、Runtime、状态、比较条、耗时。900 px 及以下为两行：第一行是轮次、Runtime、状态和耗时，第二行是占满整行的比较条。`prefers-reduced-motion` 会停止斜纹动画。
+
+### 实测：1,000 个轮次
+
+`tests/browser/trace_timing_overview.mjs` 加载 1,000 个轮次、最后一轮运行中的对话（无头 Chromium、Vite 开发服务器、assistant fixture API、1440 x 900、共享沙箱中单次运行）。它只断言功能，并打印下列数据：
+
+| 指标 | 结果 |
+| --- | --- |
+| 渲染的概览行 | 1,000 |
+| 导航开始到所有行挂载 | 847 ms |
+| DOMContentLoaded | 140 ms |
+| DOM 节点数 | 17,024 |
+| 点击第 900 轮到其 summary 获得焦点 | 293 ms |
+| 单轮次 trace 请求 | 仅第 1 轮（深链接）和第 900 轮 |
+| 运行中空闲 6 秒：对话轮询次数 | 3 |
+| 空闲 6 秒：概览列表 DOM 变更 | 0 |
+| 空闲 6 秒：React 提交 | 0 |
+| 空闲 6 秒：长任务数、最差帧 | 0、17 ms |
+| JS 堆：加载后、空闲前、空闲后 | 16.2 MB、18.1 MB、18.6 MB |
+
+空闲期间样式重算（139 到 501）来自唯一运行中比较条的斜纹动画，布局次数保持 9。该规模下不需要分批渲染或虚拟化。
 
 ### 选择：逐轮耗时对比
 

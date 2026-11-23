@@ -95,10 +95,11 @@
       "fixture": true,
       "previewSafe": true,
       "lanes": [
+        "gate",
         "extendedFixture",
         "production"
       ],
-      "note": "Trace Timing Overview on the assistant fixture services. The conversation trace response is answered by page.route; every other request reaches the real API."
+      "note": "Trace Timing Overview on the assistant fixture services. The conversation trace response is answered by page.route; every other request reaches the real API. The PR gate runs it directly in release-checks.yml on the assistant fixture services (:8020/:5180), not through run-browser-suite.mjs."
     },
     {
       "file": "assistant_sessions.mjs",

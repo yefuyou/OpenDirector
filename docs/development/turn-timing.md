@@ -48,7 +48,39 @@ After a restart the in-memory start is gone, so a turn that was running keeps `s
 
 Status: implemented in `src/canvas/traceTiming.ts` (model), `src/canvas/TraceTimingOverview.tsx` (component), and wired in `ConversationTrace` of `src/canvas/AssistantTracePage.tsx`. Slice B adds no backend field, endpoint or event timestamp.
 
-Differences from the first design: a running turn shows "about N s so far" (a 1 s display-only tick, only while a turn runs). The list scrolls inside a box of at most 40vh, so a long conversation does not push the turns down. Rows set `aria-expanded` and `aria-controls` for their turn instead of using arrow-key roving focus (plain Tab, Enter and Space). Browser check: `tests/browser/trace_timing_overview.mjs`.
+Differences from the first design: a running turn shows only `Running`, with the hatched bar. There is no timer and no elapsed time computed from the browser clock, because the clock is not an authoritative duration and a timer would render the list every second. The list scrolls inside a box of at most 40vh, so a long conversation does not push the turns down. Rows set `aria-controls` for their turn and no `aria-expanded`, since activating a row opens the turn and does not toggle it. Navigation is plain Tab, Enter and Space, not arrow-key roving focus. Browser check: `tests/browser/trace_timing_overview.mjs`, run by the assistant lane of `release-checks.yml`.
+
+### Interaction
+
+- Activating a row (click, Enter or Space) opens its turn, loads only that turn, scrolls its `<summary>` just below the sticky header and turn navigation, and moves keyboard focus to that summary. Activating the same row again keeps the turn open and focuses and scrolls to it again. The summary stays a native control, so Enter on it toggles that turn.
+- A deep link (`?turn=`) opens and positions its turn below the sticky bars but does not take focus on page load, so it does not move a screen reader or keyboard user without a request.
+- The turn navigation buttons keep their behaviour: they open and scroll, and do not move focus.
+- The turn navigation scrolls inside a capped height (`min(96px, 20vh)`). Its 1,000 buttons otherwise wrapped to 1,133 px and covered a 900 px viewport.
+- `ConversationTrace` keeps `reveal` and the conversation state stable. A poll that returns the same turns keeps the previous state object, so a running conversation does not render the turns or the overview again. Before this was fixed the state was compared in the wrong shape, so each 2 s poll rendered all rows with no visible change.
+
+### Layout
+
+Above 900 px a row is one line: turn, runtime, status, track, duration. Up to 900 px it is two lines: turn, runtime, status and duration on the first, and the track across the full row on the second. `prefers-reduced-motion` stops the hatch animation.
+
+### Measured: 1,000 turns
+
+`tests/browser/trace_timing_overview.mjs` loads a 1,000 turn conversation whose last turn is running (headless Chromium, Vite dev server, assistant fixture API, 1440 x 900, one run on a shared sandbox). It asserts function only and prints these figures:
+
+| Measure | Result |
+| --- | --- |
+| Overview rows rendered | 1,000 |
+| Navigation start to all rows attached | 847 ms |
+| DOMContentLoaded | 140 ms |
+| DOM nodes | 17,024 |
+| Click on turn 900 to its summary focused | 293 ms |
+| Per-turn trace requests | turn 1 (deep link) and turn 900 only |
+| 6 s idle with a running turn: conversation polls | 3 |
+| 6 s idle: overview list mutations | 0 |
+| 6 s idle: React commits | 0 |
+| 6 s idle: long tasks, worst frame | 0, 17 ms |
+| JS heap after load, before idle, after idle | 16.2 MB, 18.1 MB, 18.6 MB |
+
+Style recalculations during idle (139 to 501) come from the hatch animation of the one running bar; layout count stays at 9. No batching or virtualization was needed at this size.
 
 ### Choice: Per-turn Duration Comparison
 
