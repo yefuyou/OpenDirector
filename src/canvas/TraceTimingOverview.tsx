@@ -20,7 +20,9 @@ const OverviewRow = memo(function OverviewRow({ row, reveal }: { row: TimingRow;
     <li>
       <button type="button" className={`cw-trace-overview-row is-${row.kind}`}
         aria-controls={`turn-${row.id}`}
-        aria-label={t("trace.overview.row", { number: row.number, runtime, status, duration: value })}
+        aria-label={row.kind === "running"
+          ? t("trace.overview.rowRunning", { number: row.number, runtime, status })
+          : t("trace.overview.row", { number: row.number, runtime, status, duration: value })}
         onClick={() => reveal(row.id)}>
         <span className="cw-trace-overview-name">{t("trace.turn.number", { number: row.number })}</span>
         <span className="cw-trace-overview-runtime" title={runtime}>{runtime}</span>

@@ -128,9 +128,6 @@
   width: 100%; background: repeating-linear-gradient(135deg, #6f8fb8 0 6px, #2b3644 6px 12px);
   background-size: 17px 100%; opacity: .75;
 }
-.cw-trace-overview-bar.is-streaming.is-open-ended { animation: cw-trace-overview-stripes 1s linear infinite; }
-@keyframes cw-trace-overview-stripes { to { background-position: 17px 0; } }
-@media (prefers-reduced-motion: reduce) { .cw-trace-overview-bar.is-open-ended { animation: none !important; } }
 /* Up to 900px: row 1 is turn, runtime, status and duration; row 2 is the full-width track. */
 @media (max-width: 900px) {
   .cw-trace-overview { padding: 10px 12px; }

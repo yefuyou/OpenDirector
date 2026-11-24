@@ -51,5 +51,6 @@ export const trace = {
   "trace.overview.title": "各轮耗时",
   "trace.overview.hint": "条形长度用于比较各轮耗时，不是时间轴。",
   "trace.overview.row": "第 {number} 轮，{runtime}，{status}，{duration}",
+  "trace.overview.rowRunning": "第 {number} 轮，{runtime}，{status}",
   "trace.overview.running": "运行中",
 } as const;

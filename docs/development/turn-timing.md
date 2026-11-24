@@ -60,7 +60,7 @@ Differences from the first design: a running turn shows only `Running`, with the
 
 ### Layout
 
-Above 900 px a row is one line: turn, runtime, status, track, duration. Up to 900 px it is two lines: turn, runtime, status and duration on the first, and the track across the full row on the second. `prefers-reduced-motion` stops the hatch animation.
+Above 900 px a row is one line: turn, runtime, status, track, duration. Up to 900 px it is two lines: turn, runtime, status and duration on the first, and the track across the full row on the second. The hatch of an open-ended bar is static, so there is no animation to reduce and `prefers-reduced-motion` needs no rule. The running state is shown by the hatch and the `Running` label.
 
 ### Measured: 1,000 turns
 
@@ -80,7 +80,11 @@ Above 900 px a row is one line: turn, runtime, status, track, duration. Up to 90
 | 6 s idle: long tasks, worst frame | 0, 17 ms |
 | JS heap after load, before idle, after idle | 16.2 MB, 18.1 MB, 18.6 MB |
 
-Style recalculations during idle (139 to 501) come from the hatch animation of the one running bar; layout count stays at 9. No batching or virtualization was needed at this size.
+The earlier build animated the hatch of the running bar, which cost about 60 style recalculations per second while idle (139 to 501 in the window above). The hatch is now static: the counter stays at 18 before and after the idle window, so idle recalculations are 0. Layout count stays at 9. No batching or virtualization was needed at this size.
+
+### Follow-up: keyboard navigation with many turns
+
+With 1,000 turns the overview rows are 1,000 Tab stops before the turn navigation, so a keyboard user has to tab through all of them (the list scrolls inside its box). Not changed in this slice. Candidates for a later change: a roving tabindex (one Tab stop, arrow keys inside the list) and list virtualization, or a skip link past the list.
 
 ### Choice: Per-turn Duration Comparison
 

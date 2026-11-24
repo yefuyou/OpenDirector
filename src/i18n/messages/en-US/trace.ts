@@ -51,5 +51,6 @@ export const trace = {
   "trace.overview.title": "Turn durations",
   "trace.overview.hint": "Bar length compares how long each turn took. It is not a timeline.",
   "trace.overview.row": "Turn {number}, {runtime}, {status}, {duration}",
+  "trace.overview.rowRunning": "Turn {number}, {runtime}, {status}",
   "trace.overview.running": "Running",
 } as const;

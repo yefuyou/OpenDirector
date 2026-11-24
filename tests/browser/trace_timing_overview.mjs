@@ -23,11 +23,13 @@ const copy = {
   "en-US": {
     title: "Turn durations", unavailable: "Unavailable", running: "Running", turns: "Turns",
     row: (n, runtime, status, duration) => `Turn ${n}, ${runtime}, ${status}, ${duration}`,
+    rowRunning: (n, runtime, status) => `Turn ${n}, ${runtime}, ${status}`,
     done: "Completed", stopped: "Stopped", interrupted: "Interrupted", empty: "This conversation has no executed turns.",
   },
   "zh-CN": {
     title: "各轮耗时", unavailable: "不可用", running: "运行中", turns: "轮次",
     row: (n, runtime, status, duration) => `第 ${n} 轮，${runtime}，${status}，${duration}`,
+    rowRunning: (n, runtime, status) => `第 ${n} 轮，${runtime}，${status}`,
     done: "已完成", stopped: "已停止", interrupted: "已中断", empty: "该对话还没有已执行的轮次。",
   },
 };
@@ -116,7 +118,7 @@ async function measureMany() {
   await row900.focus();
   await page.keyboard.press("Enter");
   assert.equal(await page.locator("#turn-turn-900").evaluate((node) => node.open), true);
-  const tail = page.getByRole("button", { name: /^Turn 1000, .*Running, Running$/ });
+  const tail = page.getByRole("button", { name: /^Turn 1000, .*Running$/ });
   assert.equal(await tail.count(), 1, "running turn shows a label only");
 
   // Only turn 1 (deep link) and turn 900 reach the per-turn trace endpoints.
@@ -219,7 +221,7 @@ try {
     assert.equal(await rows.nth(6).getAttribute("aria-label"), words.row(7, "Codex", words.done, "0 ms"));
     // A running turn shows a label only, never a time computed from the browser clock.
     assert.equal(await rows.nth(7).locator(".cw-trace-overview-value").innerText(), words.running);
-    assert.equal(await rows.nth(7).getAttribute("aria-label"), words.row(8, "Codex", words.running, words.running));
+    assert.equal(await rows.nth(7).getAttribute("aria-label"), words.rowRunning(8, "Codex", words.running));
     assert.doesNotMatch(await rows.nth(7).locator(".cw-trace-overview-value").innerText(), /\d/);
     // The running turn does not rescale the others.
     assert.ok(Math.abs((await overview.locator(".cw-trace-overview-track > span").evaluateAll((bars) =>
