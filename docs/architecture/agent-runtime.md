@@ -55,7 +55,18 @@ Default 将模型配置中的输入模态传入 bundled OpenCode。外部 harnes
 
 Search citations keep their native markers in the original reply and trace. Completed Codex MCP web-search results supply validated source IDs, HTTP(S) URLs and titles through `sources` events; the conversation retains this metadata with the reply. The UI splits tool activities using raw text offsets before formatting prose citations as source links, and uses the same formatting for copying. Code examples remain literal. Missing sources and incomplete final markers have a localized fallback. For saved Codex replies without source metadata, queries derive it from the matching turn's project-local trace without rewriting the conversation; a bounded metadata cache is invalidated by trace modification time and size. Reading a trace never requests a model call.
 
-同一工程同时只执行一个回复。运行期间仍可提交补充消息：`POST /assistant/messages` 在空闲时直接开始一轮，在运行中返回 202 并按 `queueSeq` 把消息排入投递队列，本轮结束后依次运行。`end` 事件带 `nextTurnId` 时事件流不关闭，客户端因此能在同一条连接上接着收到下一轮；断线重连用 `GET /turns/{turn_id}/events?after=<seq>` 从已收到的最后一帧续读；链已经推进到下一轮时，客户端手里上一轮的 turn id 同样能找到这条链，不必等页面刷新。排队消息立即出现在会话里并可读；停止时整条链一起停止，排队消息标记为 `cancelled` 并保留下来供用户重新发送。运行事件转换为回复正文和工具活动，保存到对应会话；原生事件与业务工具事件追加到 `agent-runs/<turn-id>.<runtime>.jsonl`。Default 使用 `opencode` 作为轨迹文件的 runtime 名称。
+同一工程同时只执行一个回复。运行期间仍可提交补充消息：`POST /assistant/messages` 在空闲且当前会话没有排队消息时直接开始一轮，在运行中返回 202 并按 `queueSeq` 把消息排入投递队列，本轮结束后依次运行。`end` 事件带 `nextTurnId` 时事件流不关闭，客户端因此能在同一条连接上接着收到下一轮；断线重连用 `GET /turns/{turn_id}/events?after=<seq>` 从已收到的最后一帧续读；链已经推进到下一轮时，客户端手里上一轮的 turn id 同样能找到这条链，不必等页面刷新。排队消息立即出现在会话里并可读；停止时整条链一起停止，排队消息标记为 `cancelled` 并保留下来供用户重新发送。运行事件转换为回复正文和工具活动，保存到对应会话；原生事件与业务工具事件追加到 `agent-runs/<turn-id>.<runtime>.jsonl`。Default 使用 `opencode` 作为轨迹文件的 runtime 名称。
+
+队列规则：一轮正常完成后，链按 `queueSeq` 投递下一条排队消息；一轮失败时链停止，其余排队消息保持 `queued`；停止时取消其余排队消息；服务重启后不自动投递。只要当前会话还有更早提交、仍为 `queued` 的消息（由失败的一轮或重启留下），后提交的消息就不会先于它执行：
+
+| 入口 | 存在更早的排队消息时 |
+| --- | --- |
+| `POST /assistant/messages`（空闲） | 追加到队尾，返回 202 `{queued, paused: true, chainId: null, turnId: null}`，不开始执行 |
+| `POST /assistant/turns` | 拒绝，错误码 `queued_messages_pending`。与其他开始前拒绝一致，响应为 HTTP 200 且事件流已关闭，`end` 帧带 `error` 和 `conversation: null` |
+| `POST /assistant/queue/continue` | 从最早的排队消息开始一条新链，按 `queueSeq` 依次运行，返回事件流 |
+| `POST /assistant/queue/cancel` | 把排队消息标记为 `cancelled`，返回 200 `{cancelled: [...]}`，与停止后的状态相同 |
+
+`continue` 在已有回复执行时返回 409，没有排队消息时返回 409 `no_queued_messages`；`cancel` 在已有回复执行时返回 409，没有排队消息时返回 200 和空列表。两者的可选请求体 `{conversationId}` 不是当前会话时返回 409。检查只针对当前会话，归档会话中的排队消息不阻止切换或新建会话。
 
 Default 的模型网关在 `agent-runs/<turn-id>.model.jsonl` 记录实际转发的请求体，包括生效的系统消息、会话上下文、工具 Schema 与模型参数。请求 ID 关联上游 HTTP 状态、响应头等待耗时和传输错误。该文件仅供本地调试，创建权限为 `0600`，不记录 HTTP 鉴权头。回复片段、工具结果和 token 用量仍见原生轨迹。
 

@@ -149,6 +149,11 @@ class Conversations:
             if begin is not None:
                 if any(message['id'] == begin['id'] for message in value['messages']):
                     raise ProjectError('这条消息已接受，请读取对话，不要重复发送。', 409)
+                if any(message.get('status') == 'queued' for message in value['messages']):
+                    # An earlier message is still waiting to run. Starting this one now
+                    # would run it first, so it is refused until the queue is resolved.
+                    raise ProjectError('此对话中更早排队的消息还没有执行，新消息不能越过它们。请新建对话后再发送，或通过 Agent 或 API 继续或取消这些排队消息。',
+                                       409, code='queued_messages_pending')
                 if before_begin is not None:
                     before_begin()
                 if agent_session is not None:
@@ -194,6 +199,17 @@ class Conversations:
             value['messages'].append(queued)
             durable_json(file, value)
         return queued
+
+    def queued_count(self, project_id: UUID, conversation_id: UUID | None = None) -> int:
+        """How many messages of the current conversation wait to run."""
+        directory = self.path(project_id)
+        file = child(child(directory, 'agent-runs'), 'conversation.json')
+        with self.projects.local.transaction():
+            value = read_json(file) if file.exists() else {'messages': []}
+        current = value.get('conversationId') or str(uuid5(project_id, 'assistant'))
+        if conversation_id is not None and str(conversation_id) != current:
+            raise ProjectError('当前对话已切换，请重新加载后重试；原对话未覆盖。', 409)
+        return sum(item.get('status') == 'queued' for item in value['messages'])
 
     def dispatch(self, project_id: UUID, session: str | None = None,
                  agent_session: str | None = None) -> dict | None:
@@ -355,6 +371,10 @@ class Conversations:
 
 class ConversationCreate(BaseModel):
     id: UUID
+
+
+class QueueAction(BaseModel):
+    conversationId: UUID | None = None
 
 
 class RunEvents:
@@ -822,6 +842,17 @@ def agent_routes(projects, generation, configs, provider=None, *, active=None) -
                 status=failure.status, code=failure.code)})
         return StreamingResponse(events.follow(), media_type='text/event-stream')
 
+    async def start_oldest_queued(project_id: UUID, session: str, accept_language: str | None) -> StreamingResponse:
+        """Start the oldest queued message as a new chain. The caller holds the admission lock."""
+        start_session = str(uuid4())
+        dispatched = await asyncio.to_thread(conversations.dispatch, project_id, session, start_session)
+        if dispatched is None:
+            raise ProjectError('这条消息未能开始执行，请重新发送。', 409)
+        started = await plan_for(project_id, dispatched['message'], session, accept_language)
+        started['start'] = dispatched['conversation']
+        started['run_session'] = start_session
+        return launch(project_id, started, UUID(dispatched['conversation']['conversationId']))
+
     @router.post('/turns/{turn_id}/stop')
     async def stop(project_id: UUID, turn_id: UUID, x_opendirector_session: UUID = Header()):
         session = str(x_opendirector_session)
@@ -902,14 +933,41 @@ def agent_routes(projects, generation, configs, provider=None, *, active=None) -
             check = revalidate(plan)
             if check is not None:
                 await asyncio.to_thread(check)
+            if await asyncio.to_thread(conversations.queued_count, project_id, value.conversationId):
+                # Earlier messages are still waiting after a failed turn. The new one
+                # joins the tail and the queue stays paused until an explicit continue.
+                queued = await asyncio.to_thread(conversations.queue, project_id, session,
+                                                 plan['message'], value.conversationId)
+                return JSONResponse({'queued': queued, 'paused': True, 'chainId': None, 'turnId': None},
+                                    status_code=202)
             await asyncio.to_thread(conversations.queue, project_id, session, plan['message'], value.conversationId)
-            start_session = str(uuid4())
-            dispatched = await asyncio.to_thread(conversations.dispatch, project_id, session, start_session)
-            if dispatched is None:
-                raise ProjectError('这条消息未能开始执行，请重新发送。', 409)
-            started = await plan_for(project_id, dispatched['message'], session, accept_language)
-            started['start'] = dispatched['conversation']
-            started['run_session'] = start_session
-            return launch(project_id, started, UUID(dispatched['conversation']['conversationId']))
+            return await start_oldest_queued(project_id, session, accept_language)
+
+    @router.post('/queue/continue')
+    async def continue_queue(project_id: UUID, value: QueueAction | None = None,
+                             x_opendirector_session: UUID = Header(),
+                             accept_language: str | None = Header(default=None, alias='Accept-Language')):
+        """Resume a queue that stopped after a failed turn, starting with its oldest message."""
+        session = str(x_opendirector_session)
+        async with admission.setdefault(project_id, asyncio.Lock()):
+            if project_id in active:
+                raise ProjectError('当前工程已有回复正在执行。', 409)
+            if not await asyncio.to_thread(conversations.queued_count, project_id,
+                                           value.conversationId if value else None):
+                raise ProjectError('没有等待执行的排队消息。', 409, code='no_queued_messages')
+            return await start_oldest_queued(project_id, session, accept_language)
+
+    @router.post('/queue/cancel')
+    async def cancel_queue(project_id: UUID, value: QueueAction | None = None,
+                           x_opendirector_session: UUID = Header()):
+        """Cancel the messages a failed turn left queued. Stopping a running chain cancels its own."""
+        session = str(x_opendirector_session)
+        async with admission.setdefault(project_id, asyncio.Lock()):
+            if project_id in active:
+                raise ProjectError('当前工程已有回复正在执行，请先停止它。', 409)
+            await asyncio.to_thread(conversations.queued_count, project_id,
+                                    value.conversationId if value else None)
+            cancelled = await asyncio.to_thread(conversations.cancel_queued, project_id, session)
+            return {'cancelled': cancelled}
 
     return router

@@ -16,6 +16,8 @@ from opendirector.domain.capabilities import Capability
 from opendirector.domain.capability_messages import english_capability_message, missing_tool_model_message
 
 ENGLISH_BY_CODE = {
+    'queued_messages_pending': 'Earlier queued messages in this conversation have not run yet, so a new message cannot overtake them. Start a new conversation to send it, or continue or cancel the queued messages through the Agent or API.',
+    'no_queued_messages': 'There are no queued messages to continue.',
     'higgsfield_model': 'Choose MAGI-2 with the official Higgsfield Open API address.',
     'higgsfield_key': 'Enter your Higgsfield Open KEY_ID:KEY_SECRET.',
     'higgsfield_output': 'MAGI-2 supports 1080p and whole-second durations from 4 to 30 seconds.',
